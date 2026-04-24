@@ -9,7 +9,7 @@ const PUBLIC_API_PATHS = [
   "/api/mcp",
 ];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!pathname.startsWith("/api/")) return NextResponse.next();
