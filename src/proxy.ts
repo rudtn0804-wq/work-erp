@@ -7,6 +7,7 @@ const PUBLIC_API_PATHS = [
   "/api/auth/face-login",
   "/api/auth/register",
   "/api/mcp",
+  "/api/setup/admin",
 ];
 
 export function proxy(request: NextRequest) {

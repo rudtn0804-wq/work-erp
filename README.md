@@ -35,6 +35,7 @@ http://localhost:3101
 DATABASE_URL="mysql://root@localhost:3306/work_erp"
 JWT_SECRET="local-interior-field-secret"
 NEXT_PUBLIC_APP_PORT="3101"
+ADMIN_SETUP_TOKEN="change-this-before-production"
 ```
 
 ## DB

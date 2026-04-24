@@ -34,6 +34,13 @@ export const registerSchema = z.object({
   faceDescriptor: z.array(z.number()).optional(),
 });
 
+export const bootstrapAdminSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(6),
+  phone: z.string().optional(),
+});
+
 export const faceLoginSchema = z.object({
   descriptor: z.array(z.number()).length(128),
 });
