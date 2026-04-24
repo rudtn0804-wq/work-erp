@@ -1,0 +1,250 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Role {
+  admin
+  leader
+  worker
+}
+
+enum SiteStatus {
+  planned
+  in_progress
+  completed
+  paused
+}
+
+enum ScheduleStatus {
+  planned
+  in_progress
+  completed
+  paused
+}
+
+enum AttendanceStatus {
+  present
+  half_day
+  absent
+  leave
+}
+
+enum WorkLogStatus {
+  submitted
+  checked
+}
+
+enum PaidStatus {
+  pending
+  paid
+  partial
+}
+
+enum RegistrationStatus {
+  pending
+  approved
+  rejected
+}
+
+model User {
+  id                 BigInt             @id @default(autoincrement())
+  name               String             @db.VarChar(50)
+  phone              String?            @db.VarChar(30)
+  email              String?            @unique @db.VarChar(120)
+  passwordHash       String             @map("password_hash") @db.VarChar(255)
+  role               Role               @default(worker)
+  dailyWage          Decimal            @default(0) @map("daily_wage") @db.Decimal(12, 2)
+  isActive           Boolean            @default(true) @map("is_active")
+  address            String?            @db.VarChar(255)
+  profilePhoto       String?            @map("profile_photo") @db.Text
+  faceDescriptor     String?            @map("face_descriptor") @db.Text
+  registrationStatus RegistrationStatus @default(approved) @map("registration_status")
+  rejectionReason    String?            @map("rejection_reason") @db.Text
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  attendances        Attendance[]
+  createdSites       Site[]             @relation("CreatedSites")
+  createdEvents      Schedule[]         @relation("CreatedSchedules")
+  notifications      Notification[]
+  payrolls           Payroll[]
+  scheduleLinks      ScheduleWorker[]
+  workLogs           WorkLog[]
+  paintLedgerEntries PaintLedgerEntry[]
+
+  @@map("users")
+}
+
+model Site {
+  id           BigInt       @id @default(autoincrement())
+  name         String       @db.VarChar(100)
+  clientName   String?      @map("client_name") @db.VarChar(50)
+  clientPhone  String?      @map("client_phone") @db.VarChar(30)
+  address      String?      @db.VarChar(255)
+  latitude     Decimal?     @db.Decimal(10, 7)
+  longitude    Decimal?     @db.Decimal(10, 7)
+  startDate    DateTime?    @map("start_date") @db.Date
+  endDate      DateTime?    @map("end_date") @db.Date
+  status       SiteStatus   @default(planned)
+  memo         String?      @db.Text
+  createdById  BigInt?      @map("created_by")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  attendances  Attendance[]
+  createdBy    User?        @relation("CreatedSites", fields: [createdById], references: [id])
+  schedules    Schedule[]
+  workLogs     WorkLog[]
+
+  @@map("sites")
+}
+
+model Schedule {
+  id          BigInt           @id @default(autoincrement())
+  siteId      BigInt           @map("site_id")
+  title       String           @db.VarChar(120)
+  description String?          @db.Text
+  workLocation String?         @map("work_location") @db.VarChar(160)
+  workType    String?          @map("work_type") @db.VarChar(50)
+  workDate    DateTime         @map("work_date") @db.Date
+  startTime   DateTime?        @map("start_time") @db.Time(0)
+  endTime     DateTime?        @map("end_time") @db.Time(0)
+  estimatedWorkUnit Decimal    @default(1.0) @map("estimated_work_unit") @db.Decimal(4, 2)
+  totalAmount Decimal?         @map("total_amount") @db.Decimal(12, 2)
+  status      ScheduleStatus   @default(planned)
+  createdById BigInt?          @map("created_by")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  createdBy   User?            @relation("CreatedSchedules", fields: [createdById], references: [id])
+  site        Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  workers     ScheduleWorker[]
+  workLogs    WorkLog[]
+
+  @@index([workDate], map: "idx_schedules_work_date")
+  @@map("schedules")
+}
+
+model ScheduleWorker {
+  id         BigInt   @id @default(autoincrement())
+  scheduleId BigInt   @map("schedule_id")
+  userId     BigInt   @map("user_id")
+  wage       Decimal? @db.Decimal(12, 2)
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, userId])
+  @@map("schedule_workers")
+}
+
+model Attendance {
+  id          BigInt           @id @default(autoincrement())
+  userId      BigInt           @map("user_id")
+  siteId      BigInt?          @map("site_id")
+  workDate    DateTime         @map("work_date") @db.Date
+  checkInAt   DateTime?        @map("check_in_at")
+  checkOutAt  DateTime?        @map("check_out_at")
+  workUnit    Decimal          @default(1.0) @map("work_unit") @db.Decimal(4, 2)
+  status      AttendanceStatus @default(present)
+  note        String?          @db.Text
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  site        Site?            @relation(fields: [siteId], references: [id])
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workDate])
+  @@index([workDate], map: "idx_attendance_work_date")
+  @@map("attendance")
+}
+
+model WorkLog {
+  id              BigInt        @id @default(autoincrement())
+  siteId          BigInt        @map("site_id")
+  userId          BigInt        @map("user_id")
+  scheduleId      BigInt?       @map("schedule_id")
+  workDate        DateTime      @map("work_date") @db.Date
+  content         String        @db.Text
+  issues          String?       @db.Text
+  materialRequest String?       @map("material_request") @db.Text
+  status          WorkLogStatus @default(submitted)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  photos          WorkLogPhoto[]
+  schedule        Schedule?     @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  site            Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, workDate], map: "idx_work_logs_site_date")
+  @@map("work_logs")
+}
+
+model WorkLogPhoto {
+  id         BigInt   @id @default(autoincrement())
+  workLogId  BigInt   @map("work_log_id")
+  imageUrl   String   @map("image_url") @db.VarChar(255)
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  workLog    WorkLog  @relation(fields: [workLogId], references: [id], onDelete: Cascade)
+
+  @@map("work_log_photos")
+}
+
+model Payroll {
+  id              BigInt     @id @default(autoincrement())
+  userId          BigInt     @map("user_id")
+  yearMonth       String     @map("year_month") @db.VarChar(7)
+  totalWorkUnit   Decimal    @default(0) @map("total_work_unit") @db.Decimal(6, 2)
+  dailyWage       Decimal    @default(0) @map("daily_wage") @db.Decimal(12, 2)
+  totalAmount     Decimal    @default(0) @map("total_amount") @db.Decimal(12, 2)
+  paidAmount      Decimal    @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  paidStatus      PaidStatus @default(pending) @map("paid_status")
+  paidAt          DateTime?  @map("paid_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, yearMonth])
+  @@index([yearMonth], map: "idx_payrolls_year_month")
+  @@map("payrolls")
+}
+
+model Notification {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  type      String   @db.VarChar(30)
+  title     String   @db.VarChar(120)
+  message   String   @db.Text
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model PaintLedgerEntry {
+  id                BigInt    @id @default(autoincrement())
+  sourceRow         Int?      @unique @map("source_row")
+  userId            BigInt?   @map("user_id")
+  workDate          DateTime? @map("work_date") @db.Date
+  siteAddress       String?   @map("site_address") @db.Text
+  materialSpec      String?   @map("material_spec") @db.VarChar(255)
+  amount            Decimal?  @db.Decimal(12, 2)
+  paymentStatus     String?   @map("payment_status") @db.VarChar(120)
+  memo              String?   @db.Text
+  suppliedMaterials String?   @map("supplied_materials") @db.Text
+  laborCost         Decimal?  @map("labor_cost") @db.Decimal(12, 2)
+  fuelCost          Decimal?  @map("fuel_cost") @db.Decimal(12, 2)
+  materialCost      Decimal?  @map("material_cost") @db.Decimal(12, 2)
+  ownerCategory     String?   @map("owner_category") @db.VarChar(30)
+  isDayOff          Boolean   @default(false) @map("is_day_off")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  user              User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId], map: "idx_paint_ledger_user")
+  @@index([workDate], map: "idx_paint_ledger_work_date")
+  @@index([ownerCategory], map: "idx_paint_ledger_owner")
+  @@map("paint_ledger_entries")
+}
