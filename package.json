@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3101",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && next build && cp -R public .next/standalone/ && mkdir -p .next/standalone/.next && cp -R .next/static .next/standalone/.next/",
     "start": "HOSTNAME=0.0.0.0 node .next/standalone/server.js",
     "start:3101": "next start -p 3101",
     "lint": "eslint",
