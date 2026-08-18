@@ -1,5 +1,5 @@
 /* =========================================================================
- * ORIX.AC_BON_REPORT_SUB2_01 ~ 05
+ * ORIX.AC_BON_REPORT_SUB2_01 ~ 06
  * PK(SITE_CODE, KJ_YYYYMM, SEQ) 기준으로 존재하면 UPDATE, 없으면 INSERT
  * ========================================================================= */
 
@@ -269,6 +269,51 @@ WHEN NOT MATCHED THEN
            , :B_TRANS_ADJ, :B_OCI_AMT, :B_CONSOL_MVMT, :B_END_BALANCE
            , :WRITEOFF_AMT, :TOTAL_END_BAL, :GOODWILL_AMT, :RECLASS_INS_AMT
            , :REASON_ZERO, :COMPANY_EXISTS
+           , NVL(:FIX_YN, 'N')
+           , CASE WHEN NVL(:FIX_YN, 'N') = 'Y' THEN SYSDATE END
+           , SYSDATE, :USER_ID );
+
+
+/* ---------------------------------------------------------------
+ * 6. AC_BON_REPORT_SUB2_06
+ * --------------------------------------------------------------- */
+MERGE INTO ORIX.AC_BON_REPORT_SUB2_06 T
+USING (
+    SELECT :SITE_CODE     AS SITE_CODE
+         , :KJ_YYYYMM     AS KJ_YYYYMM
+         , :SEQ           AS SEQ
+      FROM DUAL
+) S
+   ON (    T.SITE_CODE = S.SITE_CODE
+       AND T.KJ_YYYYMM = S.KJ_YYYYMM
+       AND T.SEQ       = S.SEQ )
+WHEN MATCHED THEN
+    UPDATE SET T.ROW_TYPE        = :ROW_TYPE
+             , T.COMPANY_NAME    = :COMPANY_NAME
+             , T.COMPANY_CODE    = :COMPANY_CODE
+             , T.REVENUES        = :REVENUES
+             , T.OPER_INCOME     = :OPER_INCOME
+             , T.INC_BEFORE_TAX  = :INC_BEFORE_TAX
+             , T.NET_INCOME      = :NET_INCOME
+             , T.TOTAL_ASSETS    = :TOTAL_ASSETS
+             , T.TOTAL_LIAB      = :TOTAL_LIAB
+             , T.REDEEMABLE_NCI  = :REDEEMABLE_NCI
+             , T.STOCKHOLDERS_EQ = :STOCKHOLDERS_EQ
+             , T.NON_CTRL_INT    = :NON_CTRL_INT
+             , T.FIX_YN          = NVL(:FIX_YN, 'N')
+             , T.FIX_DATE        = CASE WHEN NVL(:FIX_YN, 'N') = 'Y' THEN NVL(T.FIX_DATE, SYSDATE) END
+             , T.UPDATE_DATE     = SYSDATE
+             , T.UPDATE_IDNO     = :USER_ID
+WHEN NOT MATCHED THEN
+    INSERT ( SITE_CODE, KJ_YYYYMM, SEQ
+           , ROW_TYPE, COMPANY_NAME, COMPANY_CODE
+           , REVENUES, OPER_INCOME, INC_BEFORE_TAX, NET_INCOME
+           , TOTAL_ASSETS, TOTAL_LIAB, REDEEMABLE_NCI, STOCKHOLDERS_EQ, NON_CTRL_INT
+           , FIX_YN, FIX_DATE, ENTRY_DATE, ENTRY_IDNO )
+    VALUES ( S.SITE_CODE, S.KJ_YYYYMM, S.SEQ
+           , :ROW_TYPE, :COMPANY_NAME, :COMPANY_CODE
+           , :REVENUES, :OPER_INCOME, :INC_BEFORE_TAX, :NET_INCOME
+           , :TOTAL_ASSETS, :TOTAL_LIAB, :REDEEMABLE_NCI, :STOCKHOLDERS_EQ, :NON_CTRL_INT
            , NVL(:FIX_YN, 'N')
            , CASE WHEN NVL(:FIX_YN, 'N') = 'Y' THEN SYSDATE END
            , SYSDATE, :USER_ID );
